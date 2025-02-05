@@ -1,28 +1,96 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // for kIsWeb
+import 'package:flutter/foundation.dart'; // for kIsWeb if needed
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:parse_server_sdk_flutter/parse_server_sdk_flutter.dart'; // Correct import
 
-void main() {
+// Global variable to store the current user's name.
+String currentUserName = '';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Parse. Replace the placeholders with your Back4App credentials.
+  await Parse().initialize(
+    '3l5MJh12atq8OELEibxI3ajrbArckxUL50lvEy24',
+    'https://parseapi.back4app.com',
+    clientKey: 'Rc4IlAMlJEjrrrAHy7ZJsM4zcgi6EH7zXT1DDiCz',
+    autoSendSessionId: true,
+  );
   runApp(MyApp());
 }
 
 /// The root widget.
+/// The home is set to LoginScreen so that the user must enter their name before using the app.
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Instagram Video Sessions',
       debugShowCheckedModeBanner: false,
-      home: VideoSessionApp(),
+      home: LoginScreen(),
     );
   }
 }
 
-/// This widget uses a bottom navigation bar to toggle between
-/// the submission and play (rating) flows.
+/// ------------------------------
+/// LOGIN SCREEN
+/// ------------------------------
+
+class LoginScreen extends StatefulWidget {
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _nameController = TextEditingController();
+
+  void _enterApp() {
+    String name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please enter your name.")),
+      );
+      return;
+    }
+    // Save the name globally.
+    currentUserName = name;
+    // Optionally, you could persist this in SharedPreferences.
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => VideoSessionApp()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Enter Your Name")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: "Your Name"),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _enterApp,
+              child: const Text("Enter App"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ------------------------------
+/// MAIN APP: VIDEO SESSION APP
+/// ------------------------------
+
 class VideoSessionApp extends StatefulWidget {
   @override
   _VideoSessionAppState createState() => _VideoSessionAppState();
@@ -64,19 +132,34 @@ class SubmitVideoTab extends StatefulWidget {
 class _SubmitVideoTabState extends State<SubmitVideoTab> {
   final TextEditingController _sessionController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
-  final TextEditingController _submittedByController = TextEditingController();
   final TextEditingController _videoTitleController = TextEditingController();
 
   void _saveVideo() async {
     String session = _sessionController.text.trim();
     String url = _urlController.text.trim();
-    String submittedBy = _submittedByController.text.trim();
     String videoTitle = _videoTitleController.text.trim();
 
-    if (session.isEmpty ||
-        url.isEmpty ||
-        submittedBy.isEmpty ||
-        videoTitle.isEmpty) return;
+    if (session.isEmpty || url.isEmpty || videoTitle.isEmpty) return;
+
+    // Use the globally stored user name.
+    String submittedBy = currentUserName;
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> videos = prefs.getStringList(session) ?? [];
+
+    // Check if this user has already submitted a video for this session.
+    for (var videoJson in videos) {
+      var videoData = jsonDecode(videoJson);
+      if (videoData['submittedBy'] == submittedBy) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text("You have already submitted a video for session $session."),
+          ),
+        );
+        return;
+      }
+    }
 
     // Package the video data into a JSON string.
     Map<String, String> videoData = {
@@ -86,15 +169,12 @@ class _SubmitVideoTabState extends State<SubmitVideoTab> {
     };
     String videoJson = jsonEncode(videoData);
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> videos = prefs.getStringList(session) ?? [];
     videos.add(videoJson);
     await prefs.setStringList(session, videos);
 
     // Clear the fields.
     _sessionController.clear();
     _urlController.clear();
-    _submittedByController.clear();
     _videoTitleController.clear();
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -113,10 +193,7 @@ class _SubmitVideoTabState extends State<SubmitVideoTab> {
             decoration: const InputDecoration(labelText: "Session Number"),
             keyboardType: TextInputType.number,
           ),
-          TextField(
-            controller: _submittedByController,
-            decoration: const InputDecoration(labelText: "Submitted By"),
-          ),
+          // "Submitted By" field is removed since it uses the global user name.
           TextField(
             controller: _videoTitleController,
             decoration: const InputDecoration(labelText: "Video Title"),
@@ -267,31 +344,61 @@ class _RatingScreenState extends State<RatingScreen> {
   double currentRating = 5.0;
   List<RatedVideo> ratedVideos = [];
 
-  /// Submits the current rating and advances to the next video.
-  void _submitRating() {
-    RatedVideo rv = RatedVideo(
-      video: widget.videoItems[currentIndex],
-      rating: currentRating.toInt(),
-    );
-    ratedVideos.add(rv);
-    if (currentIndex < widget.videoItems.length - 1) {
-      setState(() {
-        currentIndex++;
-        currentRating = 5.0;
-      });
-    } else {
-      // All videos have been rated; navigate to the leaderboard.
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LeaderboardScreen(
-            session: widget.session,
-            ratedVideos: ratedVideos,
+  /// Submits the current rating, writes the rating to Back4App,
+  /// and advances to the next video.
+  Future<void> _submitRating() async {
+    int ratingValue = currentRating.toInt();
+    VideoItem currentVideo = widget.videoItems[currentIndex];
+
+    // Create a ParseObject for the "ratings" class and set its fields.
+    print(ratingValue);
+    ratingValue = int.parse(ratingValue.toString());
+    var ratingObject = ParseObject('ratings')
+      ..set('user', currentVideo.submittedBy) // the submitter of the video
+      ..set('video', currentVideo.videoTitle) // the video title
+      ..set('rated_by', currentUserName) // the user who is rating
+      ..set('rating', ratingValue) // the rating value
+      ..set('session', widget.session); // the session number
+
+    final response = await ratingObject.save();
+    print("before response");
+    print(response);
+    print("after response");
+    if (response.success) {
+      // If the rating is saved successfully, add it to our local list.
+      RatedVideo rv = RatedVideo(
+        video: currentVideo,
+        rating: ratingValue,
+      );
+      ratedVideos.add(rv);
+
+      if (currentIndex < widget.videoItems.length - 1) {
+        setState(() {
+          currentIndex++;
+          currentRating = 5.0;
+        });
+      } else {
+        // All videos have been rated; navigate to the leaderboard.
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LeaderboardScreen(
+              session: widget.session,
+              ratedVideos: ratedVideos,
+            ),
           ),
-        ),
+        );
+      }
+    } else {
+      // Print the error message to the console for debugging.
+      print("Error saving rating: ${response.error?.message}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save rating. Please try again.')),
       );
     }
   }
+
+
 
   /// Launches the video URL using the url_launcher package.
   Future<void> _launchURL(String url, BuildContext context) async {
