@@ -68,10 +68,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Enter Your Name", style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFF0F0F0F), // Darker black for more contrast
-      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -87,13 +83,13 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               Image.asset(
                 'assets/buff.png', 
-                height: 150, width: 150
+                height: 450, width: 450
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: "Your Name",
+                  labelText: "Who Is This??",
                   filled: true,
                   fillColor: Color(0xFF222222), // Darker tone for input
                   labelStyle: TextStyle(color: Colors.white),
@@ -117,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                 ),
-                child: const Text("Enter App", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: const Text("Enter The Thunderdome", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -145,7 +141,10 @@ class _VideoSessionAppState extends State<VideoSessionApp> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Instagram Video Sessions")),
+      appBar: AppBar(
+        title: const Text("Vid Of The Day", textAlign: TextAlign.center, style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF0F0F0F), // Darker black for contrast
+      ),
       body: _currentIndex == 0 ? SubmitVideoTab() : PlayVideoTab(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -154,6 +153,9 @@ class _VideoSessionAppState extends State<VideoSessionApp> {
             _currentIndex = index;
           });
         },
+        backgroundColor: Color(0xFF1E1E1E), // Dark background for nav bar
+        selectedItemColor: Color(0xFFC6AB90), // Beige for selected items
+        unselectedItemColor: Colors.white70, // Lighter white for unselected items
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.upload), label: "Submit"),
           BottomNavigationBarItem(icon: Icon(Icons.play_arrow), label: "Play"),
@@ -178,77 +180,145 @@ class _SubmitVideoTabState extends State<SubmitVideoTab> {
   final TextEditingController _videoTitleController = TextEditingController();
 
   void _saveVideo() async {
-  String session = _sessionController.text.trim();
-  String videoTitle = _videoTitleController.text.trim();
+    String session = _sessionController.text.trim();
+    String videoTitle = _videoTitleController.text.trim();
 
-  if (session.isEmpty || videoTitle.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Session and video name are required.")),
-    );
-    return;
+    if (session.isEmpty || videoTitle.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Session and video name are required."),
+          backgroundColor: Color(0xFFC6AB90), // Theme color for alerts
+        ),
+      );
+      return;
+    }
+
+    // Use the globally stored username.
+    String submittedBy = currentUserName;
+
+    // Create a ParseObject to save to Back4App (Videos table)
+    var videoObject = ParseObject('Videos')
+      ..set('session', session)  // Session number
+      ..set('name', videoTitle)  // Video title (stored in "name" column)
+      ..set('url', _urlController.text.trim())
+      ..set('user', submittedBy); // User who submitted the video
+
+    // Save the object to Back4App
+    final response = await videoObject.save();
+
+    if (response.success) {
+      // Clear the fields after saving successfully.
+      _sessionController.clear();
+      _videoTitleController.clear();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Video '$videoTitle' saved to session $session."),
+          backgroundColor: Color(0xFF0F0F0F), // Darker background
+        ),
+      );
+    } else {
+      print("Error saving video: \${response.error?.message}");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to save video. Try again."),
+          backgroundColor: Color(0xFFC6AB90),
+        ),
+      );
+    }
   }
-
-  // Use the globally stored username.
-  String submittedBy = currentUserName;
-
-  // Create a ParseObject to save to Back4App (Videos table)
-  var videoObject = ParseObject('Videos')
-    ..set('session', session)  // Session number
-    ..set('name', videoTitle)  // Video title (stored in "name" column)
-    ..set('url', _urlController.text.trim())
-    ..set('user', submittedBy); // User who submitted the video
-
-  // Save the object to Back4App
-  final response = await videoObject.save();
-
-  if (response.success) {
-    // Clear the fields after saving successfully.
-    _sessionController.clear();
-    _videoTitleController.clear();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Video '$videoTitle' saved to session $session.")),
-    );
-  } else {
-    print("Error saving video: ${response.error?.message}");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Failed to save video. Try again.")),
-    );
-  }
-}
-
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _sessionController,
-            decoration: const InputDecoration(labelText: "Session Number"),
-            keyboardType: TextInputType.number,
-          ),
-          // "Submitted By" field is removed since it uses the global user name.
-          TextField(
-            controller: _videoTitleController,
-            decoration: const InputDecoration(labelText: "Video Title"),
-          ),
-          TextField(
-            controller: _urlController,
-            decoration:
-                const InputDecoration(labelText: "Instagram Reel URL"),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saveVideo,
-            child: const Text("Save Video"),
-          ),
-        ],
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E1E1E), Color(0xFF0F0F0F)], // Deep space effect
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/buff.png', // Ensure this matches your actual asset path
+              height: 250, width: 250
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _sessionController,
+              decoration: InputDecoration(
+                labelText: "Session Number",
+                filled: true,
+                fillColor: Color(0xFF222222), // Darker tone for input
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFC6AB90)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFE5C39C)),
+                ),
+              ),
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _videoTitleController,
+              decoration: InputDecoration(
+                labelText: "Video Title",
+                filled: true,
+                fillColor: Color(0xFF222222),
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFC6AB90)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFE5C39C)),
+                ),
+              ),
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _urlController,
+              decoration: InputDecoration(
+                labelText: "Instagram Reel URL",
+                filled: true,
+                fillColor: Color(0xFF222222),
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFC6AB90)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFE5C39C)),
+                ),
+              ),
+              style: TextStyle(color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _saveVideo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFFE5C39C), // Slightly lighter beige
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12), // Rounded edges for a modern look
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              ),
+              child: const Text("Save Video", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
 
 /// A simple model class for a video item.
 class VideoItem {
@@ -299,7 +369,10 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
     String session = _sessionController.text.trim();
     if (session.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter a session number.")),
+        SnackBar(
+          content: Text("Please enter a session number."),
+          backgroundColor: Color(0xFFC6AB90),
+        ),
       );
       return;
     }
@@ -320,89 +393,130 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
         }).toList();
 
         setState(() {
-          // ✅ Use `.toJson()` before encoding to JSON
           _videoJsonList = fetchedVideos.map((v) => jsonEncode(v.toJson())).toList();
           _currentSession = session;
         });
       } else {
-        print("No videos found OR issue with response: ${response.error?.message}");
+        print("No videos found OR issue with response: \${response.error?.message}");
         setState(() {
           _videoJsonList = [];
           _currentSession = session;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("No videos found for session $session.")),
+          SnackBar(
+            content: Text("No videos found for session $session."),
+            backgroundColor: Color(0xFFC6AB90),
+          ),
         );
       }
     } catch (e) {
-      print("Error loading videos: $e"); // Logs the error for debugging
+      print("Error loading videos: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load videos. Please try again.")),
+        SnackBar(
+          content: Text("Failed to load videos. Please try again."),
+          backgroundColor: Color(0xFFC6AB90),
+        ),
       );
     }
   }
 
-
-
-
   @override
   Widget build(BuildContext context) {
-    // Convert the JSON strings into VideoItem objects.
     List<VideoItem> videoItems = _videoJsonList.map((jsonStr) {
       final Map<String, dynamic> data = jsonDecode(jsonStr);
       return VideoItem.fromJson(data);
     }).toList();
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _sessionController,
-            decoration:
-                const InputDecoration(labelText: "Enter Session Number"),
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 10),
-          ElevatedButton(
-            onPressed: _loadVideos,
-            child: const Text("Load Session"),
-          ),
-          const SizedBox(height: 20),
-          if (videoItems.isNotEmpty && _currentSession != null)
-            // Session overview button that shows the session number
-            // and a brief list of video titles.
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => RatingScreen(
-                      session: _currentSession!,
-                      videoItems: videoItems,
-                    ),
-                  ),
-                );
-              },
-              child: Column(
-                children: [
-                  Text("Session $_currentSession"),
-                  const SizedBox(height: 5),
-                  Text(
-                    "Videos: ${videoItems.map((v) => v.videoTitle).join(', ')}",
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF1E1E1E), Color(0xFF0F0F0F)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Image.asset(
+              'assets/buff.png',
+              height: 150,
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _sessionController,
+              decoration: InputDecoration(
+                labelText: "Enter Session Number",
+                filled: true,
+                fillColor: Color(0xFF222222),
+                labelStyle: TextStyle(color: Colors.white),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFC6AB90)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Color(0xFFE5C39C)),
+                ),
               ),
-            )
-          else if (_currentSession != null)
-            const Text("No videos found for this session."),
-        ],
+              style: TextStyle(color: Colors.white),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _loadVideos,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFFE5C39C),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              ),
+              child: const Text("Load Session", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 20),
+            if (videoItems.isNotEmpty && _currentSession != null)
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RatingScreen(
+                        session: _currentSession!,
+                        videoItems: videoItems,
+                      ),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFC6AB90),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text("Session $_currentSession", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 5),
+                    Text(
+                      "Videos: ${videoItems.map((v) => v.videoTitle).join(', ')}",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ],
+                ),
+              )
+            else if (_currentSession != null)
+              const Text("No videos found for this session.", style: TextStyle(color: Colors.white)),
+          ],
+        ),
       ),
     );
   }
 }
+
 
 /// ------------------------------
 /// RATING SCREEN
@@ -430,28 +544,20 @@ class _RatingScreenState extends State<RatingScreen> {
   double currentRating = 5.0;
   List<RatedVideo> ratedVideos = [];
 
-  /// Submits the current rating, writes the rating to Back4App,
-  /// and advances to the next video.
   Future<void> _submitRating() async {
     int ratingValue = currentRating.toInt();
     VideoItem currentVideo = widget.videoItems[currentIndex];
 
-    // Create a ParseObject for the "ratings" class and set its fields.
-    print(ratingValue);
-    ratingValue = int.parse(ratingValue.toString());
     var ratingObject = ParseObject('ratings')
-      ..set('user', currentVideo.submittedBy) // the submitter of the video
-      ..set('video', currentVideo.videoTitle) // the video title
-      ..set('rated_by', currentUserName) // the user who is rating
-      ..set('rating', ratingValue) // the rating value
-      ..set('session', widget.session); // the session number
+      ..set('user', currentVideo.submittedBy)
+      ..set('video', currentVideo.videoTitle)
+      ..set('rated_by', currentUserName)
+      ..set('rating', ratingValue)
+      ..set('session', widget.session);
 
     final response = await ratingObject.save();
-    print("before response");
-    print(response);
-    print("after response");
+
     if (response.success) {
-      // If the rating is saved successfully, add it to our local list.
       RatedVideo rv = RatedVideo(
         video: currentVideo,
         rating: ratingValue,
@@ -464,7 +570,6 @@ class _RatingScreenState extends State<RatingScreen> {
           currentRating = 5.0;
         });
       } else {
-        // All videos have been rated; navigate to the leaderboard.
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -476,32 +581,22 @@ class _RatingScreenState extends State<RatingScreen> {
         );
       }
     } else {
-      // Print the error message to the console for debugging.
-      print("Error saving rating: ${response.error?.message}");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save rating. Please try again.')),
+        SnackBar(
+          content: Text('Failed to save rating. Please try again.'),
+          backgroundColor: Color(0xFFC6AB90),
+        ),
       );
     }
   }
 
-
-
-  /// Launches the video URL using the url_launcher package.
   Future<void> _launchURL(String url, BuildContext context) async {
-    // Ensure the URL has a scheme; if not, assume https.
     final String fixedUrl = url.startsWith('http') ? url : 'https://$url';
     final Uri uri = Uri.parse(fixedUrl);
     try {
-      bool launched = false;
-      if (kIsWeb) {
-        // On web, launch without specifying a mode.
-        launched = await launchUrl(uri);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
-        if (await canLaunchUrl(uri)) {
-          launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-      }
-      if (!launched) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not launch $fixedUrl')),
         );
@@ -518,57 +613,95 @@ class _RatingScreenState extends State<RatingScreen> {
     VideoItem currentVideo = widget.videoItems[currentIndex];
 
     return Scaffold(
-      appBar: AppBar(title: Text("Rate Videos - Session ${widget.session}")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Display only the video title.
-            Text(
-              currentVideo.videoTitle,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            // Display the clickable video URL.
-            InkWell(
-              onTap: () => _launchURL(currentVideo.url, context),
-              child: Text(
-                currentVideo.url,
+      appBar: AppBar(
+        title: Text(
+          "Rate Videos - Session ${widget.session}",
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Color(0xFF0F0F0F),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1E1E1E), Color(0xFF0F0F0F)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              Image.asset(
+                'assets/buff.png',
+                height: 150,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                currentVideo.videoTitle,
                 style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
                 textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 20),
-            Text("Rating: ${currentRating.toInt()}",
-                style: const TextStyle(fontSize: 18)),
-            Slider(
-              value: currentRating,
-              min: 1,
-              max: 10,
-              divisions: 9,
-              label: currentRating.toInt().toString(),
-              onChanged: (value) {
-                setState(() {
-                  currentRating = value;
-                });
-              },
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitRating,
-              child: const Text("Submit Rating"),
-            ),
-          ],
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => _launchURL(currentVideo.url, context),
+                child: Text(
+                  currentVideo.url,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                "Rating: ${currentRating.toInt()}",
+                style: const TextStyle(fontSize: 18, color: Colors.white),
+              ),
+              Slider(
+                value: currentRating,
+                min: 1,
+                max: 10,
+                divisions: 9,
+                label: currentRating.toInt().toString(),
+                activeColor: Color(0xFFE5C39C),
+                inactiveColor: Color(0xFF555555),
+                onChanged: (value) {
+                  setState(() {
+                    currentRating = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _submitRating,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFE5C39C),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                ),
+                child: const Text(
+                  "Submit Rating",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
 
 /// ------------------------------
 /// LEADERBOARD SCREEN
@@ -652,29 +785,73 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Leaderboard - Session ${widget.session}")),
-      body: leaderboardData.isEmpty
-          ? Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ListView.builder(
-                itemCount: leaderboardData.length,
-                itemBuilder: (context, index) {
-                  var video = leaderboardData[index];
+  backgroundColor: Color(0xFF0F0F0F), // Deep black for an immersive dark theme
+  appBar: AppBar(
+    title: Text(
+      "Leaderboard - Session ${widget.session}",
+      style: TextStyle(color: Color(0xFFE5C39C), fontWeight: FontWeight.bold), // Warm beige for contrast
+    ),
+    backgroundColor: Color(0xFF1A1A1A), // Slightly lighter black for better separation
+    elevation: 4, // Subtle shadow to make it distinct
+    shadowColor: Color(0xFF0A0A0A), // Darker shadow for depth
+    iconTheme: IconThemeData(color: Color(0xFFE5C39C)), // Make the back button beige for visibility
+  ),
+  body: Container(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [Color(0xFF1E1E1E), Color(0xFF0F0F0F)], // Subtle gradient effect
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ),
+    ),
+    child: leaderboardData.isEmpty
+        ? Center(child: CircularProgressIndicator(color: Color(0xFFE5C39C))) // Beige loading indicator
+        : Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ListView.builder(
+              itemCount: leaderboardData.length,
+              itemBuilder: (context, index) {
+                var video = leaderboardData[index];
 
-                  return Card(
-                    child: ListTile(
-                      leading: Text("${index + 1}"), // Rank based on average rating
-                      title: Text(video['videoTitle']),
-                      subtitle: Text("Submitted by: ${video['submittedBy']}"),
-                      trailing: Text("Avg Rating: ${video['averageRating'].toStringAsFixed(1)}"),
-                      onTap: () => _launchURL(video['videoUrl'], context),
+                return Card(
+                  color: Color(0xFF222222), // Dark gray card to stand out slightly from background
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), // Smooth edges
+                  ),
+                  child: ListTile(
+                    leading: Text(
+                      "#${index + 1}",
+                      style: TextStyle(color: Color(0xFFE5C39C), fontWeight: FontWeight.bold), // Strong contrast
                     ),
-                  );
-                },
-              ),
+                    title: Text(
+                      video['videoTitle'],
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      "Submitted by: ${video['submittedBy']}",
+                      style: TextStyle(color: Color(0xFFC6AB90), fontSize: 14),
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          "Avg Rating: ${video['averageRating'].toStringAsFixed(1)}",
+                          style: TextStyle(color: Color(0xFFE5C39C), fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.arrow_forward_ios, color: Color(0xFFE5C39C), size: 18), // Visible arrow
+                      ],
+                    ),
+                    onTap: () => _launchURL(video['videoUrl'], context),
+                  ),
+                );
+              },
             ),
-    );
+          ),
+  ),
+);
+
+
   }
 
   // Open video URL in browser
