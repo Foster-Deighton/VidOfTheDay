@@ -135,52 +135,45 @@ class _SubmitVideoTabState extends State<SubmitVideoTab> {
   final TextEditingController _videoTitleController = TextEditingController();
 
   void _saveVideo() async {
-    String session = _sessionController.text.trim();
-    String url = _urlController.text.trim();
-    String videoTitle = _videoTitleController.text.trim();
+  String session = _sessionController.text.trim();
+  String videoTitle = _videoTitleController.text.trim();
 
-    if (session.isEmpty || url.isEmpty || videoTitle.isEmpty) return;
+  if (session.isEmpty || videoTitle.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Session and video name are required.")),
+    );
+    return;
+  }
 
-    // Use the globally stored user name.
-    String submittedBy = currentUserName;
+  // Use the globally stored username.
+  String submittedBy = currentUserName;
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> videos = prefs.getStringList(session) ?? [];
+  // Create a ParseObject to save to Back4App (Videos table)
+  var videoObject = ParseObject('Videos')
+    ..set('session', session)  // Session number
+    ..set('name', videoTitle)  // Video title (stored in "name" column)
+    ..set('url', _urlController.text.trim())
+    ..set('user', submittedBy); // User who submitted the video
 
-    // Check if this user has already submitted a video for this session.
-    for (var videoJson in videos) {
-      var videoData = jsonDecode(videoJson);
-      if (videoData['submittedBy'] == submittedBy) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text("You have already submitted a video for session $session."),
-          ),
-        );
-        return;
-      }
-    }
+  // Save the object to Back4App
+  final response = await videoObject.save();
 
-    // Package the video data into a JSON string.
-    Map<String, String> videoData = {
-      'url': url,
-      'submittedBy': submittedBy,
-      'videoTitle': videoTitle,
-    };
-    String videoJson = jsonEncode(videoData);
-
-    videos.add(videoJson);
-    await prefs.setStringList(session, videos);
-
-    // Clear the fields.
+  if (response.success) {
+    // Clear the fields after saving successfully.
     _sessionController.clear();
-    _urlController.clear();
     _videoTitleController.clear();
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Video saved to session $session")),
+      SnackBar(content: Text("Video '$videoTitle' saved to session $session.")),
+    );
+  } else {
+    print("Error saving video: ${response.error?.message}");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Failed to save video. Try again.")),
     );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -233,7 +226,17 @@ class VideoItem {
       videoTitle: json['videoTitle'] as String,
     );
   }
+
+  // ✅ Add this method to convert VideoItem to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'url': url,
+      'submittedBy': submittedBy,
+      'videoTitle': videoTitle,
+    };
+  }
 }
+
 
 /// ------------------------------
 /// PLAY PAGE – SESSION SEARCH
@@ -251,14 +254,54 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
 
   void _loadVideos() async {
     String session = _sessionController.text.trim();
-    if (session.isEmpty) return;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String>? videos = prefs.getStringList(session);
-    setState(() {
-      _videoJsonList = videos ?? [];
-      _currentSession = session;
-    });
+    if (session.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Please enter a session number.")),
+      );
+      return;
+    }
+
+    try {
+      QueryBuilder<ParseObject> query = QueryBuilder<ParseObject>(ParseObject('Videos'))
+        ..whereEqualTo('session', session);
+
+      final response = await query.query();
+
+      if (response.success && response.results != null) {
+        List<VideoItem> fetchedVideos = response.results!.map((video) {
+          return VideoItem(
+            url: video.get<String>('url') ?? 'No URL',
+            submittedBy: video.get<String>('user') ?? 'Unknown',
+            videoTitle: video.get<String>('name') ?? 'Untitled Video',
+          );
+        }).toList();
+
+        setState(() {
+          // ✅ Use `.toJson()` before encoding to JSON
+          _videoJsonList = fetchedVideos.map((v) => jsonEncode(v.toJson())).toList();
+          _currentSession = session;
+        });
+      } else {
+        print("No videos found OR issue with response: ${response.error?.message}");
+        setState(() {
+          _videoJsonList = [];
+          _currentSession = session;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No videos found for session $session.")),
+        );
+      }
+    } catch (e) {
+      print("Error loading videos: $e"); // Logs the error for debugging
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load videos. Please try again.")),
+      );
+    }
   }
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -522,3 +565,5 @@ class LeaderboardScreen extends StatelessWidget {
     );
   }
 }
+
+
