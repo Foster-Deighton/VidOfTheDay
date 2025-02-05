@@ -49,7 +49,10 @@ class _LoginScreenState extends State<LoginScreen> {
     String name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please enter your name.")),
+        SnackBar(
+          content: Text("Please enter your name."),
+          backgroundColor: Color(0xFFC6AB90),
+        ),
       );
       return;
     }
@@ -65,27 +68,67 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Enter Your Name")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: "Your Name"),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _enterApp,
-              child: const Text("Enter App"),
-            ),
-          ],
+      appBar: AppBar(
+        title: const Text("Enter Your Name", style: TextStyle(color: Colors.white)),
+        backgroundColor: Color(0xFF0F0F0F), // Darker black for more contrast
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1E1E1E), Color(0xFF0F0F0F)], // Deep space effect
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/buff.png', 
+                height: 150, width: 150
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _nameController,
+                decoration: InputDecoration(
+                  labelText: "Your Name",
+                  filled: true,
+                  fillColor: Color(0xFF222222), // Darker tone for input
+                  labelStyle: TextStyle(color: Colors.white),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFC6AB90)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFE5C39C)), // Softer beige
+                  ),
+                ),
+                style: TextStyle(color: Colors.white),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _enterApp,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFE5C39C), // Slightly lighter beige
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12), // Rounded edges for a modern look
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                ),
+                child: const Text("Enter App", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
+
+
 
 /// ------------------------------
 /// MAIN APP: VIDEO SESSION APP
