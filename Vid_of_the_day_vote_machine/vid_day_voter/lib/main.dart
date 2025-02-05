@@ -531,39 +531,132 @@ class _RatingScreenState extends State<RatingScreen> {
 /// LEADERBOARD SCREEN
 /// ------------------------------
 
-class LeaderboardScreen extends StatelessWidget {
+class LeaderboardScreen extends StatefulWidget {
   final String session;
-  final List<RatedVideo> ratedVideos;
 
-  LeaderboardScreen({required this.session, required this.ratedVideos});
+  LeaderboardScreen({required this.session, required List<RatedVideo> ratedVideos});
+
+  @override
+  _LeaderboardScreenState createState() => _LeaderboardScreenState();
+}
+
+class _LeaderboardScreenState extends State<LeaderboardScreen> {
+  List<Map<String, dynamic>> leaderboardData = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLeaderboardData();
+  }
+
+  Future<void> _fetchLeaderboardData() async {
+    try {
+      // Query all unique videos for the session
+      QueryBuilder<ParseObject> videoQuery = QueryBuilder<ParseObject>(ParseObject('Videos'))
+        ..whereEqualTo('session', widget.session);
+
+      final videoResponse = await videoQuery.query();
+
+      if (videoResponse.success && videoResponse.results != null) {
+        List<Map<String, dynamic>> tempLeaderboard = [];
+
+        for (var video in videoResponse.results!) {
+          String videoTitle = video.get<String>('name') ?? 'Untitled Video';
+          String submittedBy = video.get<String>('user') ?? 'Unknown';
+          String videoUrl = video.get<String>('url') ?? 'No URL';
+
+          // Fetch all ratings for this video in the session
+          QueryBuilder<ParseObject> ratingQuery = QueryBuilder<ParseObject>(ParseObject('ratings'))
+            ..whereEqualTo('video', videoTitle)
+            ..whereEqualTo('session', widget.session);
+
+          final ratingResponse = await ratingQuery.query();
+
+          List<int> ratings = [];
+          if (ratingResponse.success && ratingResponse.results != null) {
+            for (var ratingObj in ratingResponse.results!) {
+              ratings.add(ratingObj.get<int>('rating'));
+            }
+          }
+
+          // Calculate the average rating
+          double averageRating = ratings.isNotEmpty
+              ? ratings.reduce((a, b) => a + b) / ratings.length
+              : 0.0; // Default to 0 if no ratings
+
+          tempLeaderboard.add({
+            'videoTitle': videoTitle,
+            'submittedBy': submittedBy,
+            'averageRating': averageRating,
+            'videoUrl': videoUrl,
+          });
+        }
+
+        // Sort videos by highest average rating
+        tempLeaderboard.sort((a, b) => b['averageRating'].compareTo(a['averageRating']));
+
+        setState(() {
+          leaderboardData = tempLeaderboard;
+        });
+      } else {
+        print("No videos found or issue with response: ${videoResponse.error?.message}");
+      }
+    } catch (e) {
+      print("Error loading leaderboard data: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Sort the rated videos by rating in descending order.
-    List<RatedVideo> sortedVideos = List.from(ratedVideos)
-      ..sort((a, b) => b.rating.compareTo(a.rating));
-
     return Scaffold(
-      appBar: AppBar(title: Text("Leaderboard - Session $session")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: sortedVideos.length,
-          itemBuilder: (context, index) {
-            RatedVideo rv = sortedVideos[index];
-            return Card(
-              child: ListTile(
-                leading: Text("${index + 1}"),
-                title: Text(rv.video.videoTitle),
-                subtitle: Text("Submitted by: ${rv.video.submittedBy}"),
-                trailing: Text("Rating: ${rv.rating}"),
+      appBar: AppBar(title: Text("Leaderboard - Session ${widget.session}")),
+      body: leaderboardData.isEmpty
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ListView.builder(
+                itemCount: leaderboardData.length,
+                itemBuilder: (context, index) {
+                  var video = leaderboardData[index];
+
+                  return Card(
+                    child: ListTile(
+                      leading: Text("${index + 1}"), // Rank based on average rating
+                      title: Text(video['videoTitle']),
+                      subtitle: Text("Submitted by: ${video['submittedBy']}"),
+                      trailing: Text("Avg Rating: ${video['averageRating'].toStringAsFixed(1)}"),
+                      onTap: () => _launchURL(video['videoUrl'], context),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
-      ),
+            ),
     );
   }
+
+  // Open video URL in browser
+  Future<void> _launchURL(String url, BuildContext context) async {
+    if (url.isEmpty || url == 'No URL') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No URL available for this video')),
+      );
+      return;
+    }
+
+    final Uri uri = Uri.parse(url.startsWith('http') ? url : 'https://$url');
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not launch $url')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error launching URL: $e')),
+      );
+    }
+  }
 }
-
-
