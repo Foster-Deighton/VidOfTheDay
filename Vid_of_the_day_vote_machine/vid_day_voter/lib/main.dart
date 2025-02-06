@@ -477,37 +477,88 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
             ),
             const SizedBox(height: 20),
             if (videoItems.isNotEmpty && _currentSession != null)
+
+
+
+
+
+
+
+
+
+
               ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RatingScreen(
-                        session: _currentSession!,
-                        videoItems: videoItems,
-                      ),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFC6AB90),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text("Session $_currentSession", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Videos: ${videoItems.map((v) => v.videoTitle).join(', ')}",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  ],
-                ),
-              )
+  onPressed: () async {
+    bool ratedAlready = false;
+    List<String> ratedVideos = []; // To store videos rated by the user
+
+    final QueryBuilder<ParseObject> pressedYet = 
+        QueryBuilder<ParseObject>(ParseObject('ratings'))
+        ..whereEqualTo('session', _currentSession);
+
+    final ratedThing = await pressedYet.query();
+    final List? results = ratedThing.results;
+
+    print(results);
+
+    // Check if user has already rated this session and collect rated videos
+    for (final review in results ?? []) {
+      if (review.get<String>('rated_by') == currentUserName) {
+        ratedAlready = true;
+        ratedVideos.add(review.get<String>('video_title') ?? 'Unknown Video'); // Adjust 'video_title' to match your field
+      }
+    }
+
+    // If the user hasn't rated yet, allow them to rate
+    if (!ratedAlready) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RatingScreen(
+            session: _currentSession!,
+            videoItems: videoItems,
+          ),
+        ),
+      );
+    } 
+    // If the user has already rated, redirect to the leaderboard with ratedVideos
+    else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LeaderboardScreen(
+            session: _currentSession!,
+            ratedVideos: ratedVideos.map((title) => RatedVideo(video: VideoItem(url: '', submittedBy: '', videoTitle: title), rating: 0)).toList(),  // Convert to List<RatedVideo>
+          ),
+        ),
+      );
+    }
+  },
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Color(0xFFC6AB90),
+    foregroundColor: Colors.black,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+  ),
+  child: Column(
+    children: [
+      Text(
+        "Session $_currentSession",
+        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+      ),
+      const SizedBox(height: 5),
+      Text(
+        "Videos: ${videoItems.map((v) => v.videoTitle).join(', ')}",
+        textAlign: TextAlign.center,
+        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+      ),
+    ],
+  ),
+)
+
+
+
             else if (_currentSession != null)
               const Text("No videos found for this session.", style: TextStyle(color: Colors.white)),
           ],
