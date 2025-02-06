@@ -364,6 +364,7 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
   final TextEditingController _sessionController = TextEditingController();
   List<String> _videoJsonList = [];
   String? _currentSession;
+  bool _showOptions = false; // Controls the flip effect
 
   void _loadVideos() async {
     String session = _sessionController.text.trim();
@@ -395,12 +396,13 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
         setState(() {
           _videoJsonList = fetchedVideos.map((v) => jsonEncode(v.toJson())).toList();
           _currentSession = session;
+          _showOptions = false; // Reset flip when loading a new session
         });
       } else {
-        print("No videos found OR issue with response: \${response.error?.message}");
         setState(() {
           _videoJsonList = [];
           _currentSession = session;
+          _showOptions = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -411,7 +413,6 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
         );
       }
     } catch (e) {
-      print("Error loading videos: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed to load videos. Please try again."),
@@ -476,36 +477,101 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
               child: const Text("Load Session", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 20),
+
             if (videoItems.isNotEmpty && _currentSession != null)
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => RatingScreen(
-                        session: _currentSession!,
-                        videoItems: videoItems,
-                      ),
-                    ),
-                  );
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _showOptions = !_showOptions; // Flip the card
+                  });
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFC6AB90),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text("Session $_currentSession", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 5),
-                    Text(
-                      "Videos: ${videoItems.map((v) => v.videoTitle).join(', ')}",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                  ],
+                child: AnimatedSwitcher(
+                  duration: Duration(milliseconds: 500),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return RotationTransition(
+                      turns: Tween(begin: 0.5, end: 1.0).animate(animation),
+                      child: child,
+                    );
+                  },
+                  child: _showOptions
+                      ? Container(
+                          key: ValueKey(1),
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Color(0xFF222222),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => RatingScreen(
+                                        session: _currentSession!,
+                                        videoItems: videoItems,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Color(0xFFE5C39C),
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                                ),
+                                child: const Text("Go to Ratings", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(height: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => LeaderboardScreen(session: _currentSession!, ratedVideos: [],),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Color(0xFFC6AB90),
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                                ),
+                                child: const Text("Go to Leaderboard", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Container(
+                          key: ValueKey(2),
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Color(0xFF222222),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                "Session $_currentSession",
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                "Videos: ${videoItems.map((v) => v.videoTitle).join(', ')}",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.white, fontSize: 12),
+                              ),
+                              const SizedBox(height: 10),
+                              Icon(Icons.flip, color: Color(0xFFE5C39C), size: 30), // Flip icon hint
+                            ],
+                          ),
+                        ),
                 ),
               )
             else if (_currentSession != null)
@@ -516,6 +582,7 @@ class _PlayVideoTabState extends State<PlayVideoTab> {
     );
   }
 }
+
 
 
 /// ------------------------------
