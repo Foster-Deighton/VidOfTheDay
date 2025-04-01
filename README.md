@@ -1,3 +1,3 @@
 ﻿# VID OF THE DAY 
 
- We Finally Have a Way of making the VidOFTheDay Rating Bipartisan!! Let's go.
+Anonymous Forum for Video Submissions to Vid of the Day; Allows for bipartisan rating
